@@ -64,7 +64,8 @@ export interface SetTextAction {
 export interface SetVisibleAction {
   readonly type: 'set_visible';
   readonly target: ElementId;
-  readonly visible: boolean;
+  /** 'toggle' flips the current state (used to open and close the settings panel). */
+  readonly visible: boolean | 'toggle';
 }
 
 export interface SetSettingAction {
@@ -101,10 +102,21 @@ export interface HubEventResponse {
   readonly actions: readonly HubAction[];
 }
 
-/** Shape of hub.json written by `npm run hub:export`. */
+/** A "timer" connection: the interface sends the event every `every` seconds. */
+export interface HubTimer {
+  readonly id: ElementId;
+  readonly every: number;
+}
+
+/**
+ * Shape of hub.json written by `npm run hub:export`, and of the local hub's
+ * GET /manifest reply: every connection, so the interface knows which
+ * elements are connected and which timers to run.
+ */
 export interface ExportedHub {
   readonly version: 1;
   readonly bindings: Readonly<Record<string, Readonly<Record<string, readonly HubAction[]>>>>;
+  readonly timers?: readonly HubTimer[];
 }
 
 export interface HubConnection {

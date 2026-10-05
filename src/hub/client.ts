@@ -13,7 +13,7 @@ import { invoke, isTauri } from '@tauri-apps/api/core';
 import { devHubConnection } from 'virtual:hub-connection';
 import { config } from '../config/config';
 import type { ElementId, HubEvent } from './elementIds';
-import type { ExportedHub, HubAction, HubConnection, HubEventRequest } from './protocol';
+import type { ExportedHub, HubAction, HubConnection, HubEventRequest, HubTimer } from './protocol';
 
 export type HubRoute = 'local' | 'exported' | 'remote' | 'none';
 
@@ -48,30 +48,67 @@ function readActions(value: unknown): readonly HubAction[] {
   return value['actions'].filter(isHubAction);
 }
 
-function isExportedHub(value: unknown): value is ExportedHub {
-  return isRecord(value) && value['version'] === 1 && isRecord(value['bindings']);
+function isTimer(value: unknown): value is HubTimer {
+  return isRecord(value) && typeof value['id'] === 'string' && typeof value['every'] === 'number' && value['every'] > 0;
 }
 
-async function postEvent(
-  baseUrl: string,
-  token: string,
-  request: HubEventRequest,
-): Promise<readonly HubAction[]> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (token !== '') headers['Authorization'] = `Bearer ${token}`;
-  const response = await fetch(`${baseUrl}/event`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(request),
-    signal: AbortSignal.timeout(config.hub.requestTimeoutMs),
-  });
-  if (!response.ok) throw new Error(`Hub answered ${response.status}`);
-  return readActions(await response.json());
+/** Validate a manifest from hub.json or the local hub; anything malformed counts as no manifest. */
+export function readManifest(value: unknown): ExportedHub | null {
+  if (!isRecord(value) || value['version'] !== 1 || !isRecord(value['bindings'])) return null;
+  const bindings: Record<string, Record<string, readonly HubAction[]>> = {};
+  for (const [id, events] of Object.entries(value['bindings'])) {
+    if (!isRecord(events)) continue;
+    const clean: Record<string, readonly HubAction[]> = {};
+    for (const [event, actions] of Object.entries(events)) {
+      if (Array.isArray(actions)) clean[event] = actions.filter(isHubAction);
+    }
+    bindings[id] = clean;
+  }
+  const timers = Array.isArray(value['timers']) ? value['timers'].filter(isTimer) : [];
+  return { version: 1, bindings, timers };
+}
+
+function authHeaders(token: string): Record<string, string> {
+  return token === '' ? {} : { Authorization: `Bearer ${token}` };
+}
+
+/** What the client needs from its surroundings; replaced in tests. */
+export interface HubEnvironment {
+  readonly fetch: typeof fetch;
+  /** The local hub, if one runs next to the app. */
+  readonly discover: () => Promise<HubConnection | null>;
+  readonly exportedUrl: string;
+  readonly remoteUrl: string;
+  readonly remoteToken: string;
+  readonly timeoutMs: number;
+}
+
+async function discoverLocalHub(): Promise<HubConnection | null> {
+  if (devHubConnection !== null) return devHubConnection;
+  if (!isTauri()) return null;
+  try {
+    return await invoke<HubConnection | null>('hub_connection');
+  } catch {
+    return null;
+  }
+}
+
+export function defaultEnvironment(): HubEnvironment {
+  return {
+    fetch: (...args) => fetch(...args),
+    discover: discoverLocalHub,
+    exportedUrl: `${import.meta.env.BASE_URL}${config.hub.exportedManifestUrl}`,
+    remoteUrl: config.hub.remoteUrl,
+    remoteToken: config.hub.remoteToken,
+    timeoutMs: config.hub.requestTimeoutMs,
+  };
 }
 
 export class HubClient {
   private connection: Promise<HubConnection | null> | null = null;
   private exported: Promise<ExportedHub | null> | null = null;
+
+  constructor(private readonly env: HubEnvironment = defaultEnvironment()) {}
 
   async dispatch(
     id: ElementId,
@@ -83,7 +120,7 @@ export class HubClient {
     const local = await this.localConnection();
     if (local !== null) {
       try {
-        return { route: 'local', actions: await postEvent(local.url, local.token, request) };
+        return { route: 'local', actions: await this.post(local.url, local.token, request) };
       } catch {
         // Fall through to the exported connections.
       }
@@ -94,9 +131,9 @@ export class HubClient {
     if (actions.length === 0) return { route: 'none', actions: [] };
 
     if (actions.some((action) => action.type === 'remote')) {
-      if (config.hub.remoteUrl === '') return { route: 'none', actions: [] };
+      if (this.env.remoteUrl === '') return { route: 'none', actions: [] };
       try {
-        const remote = await postEvent(config.hub.remoteUrl, config.hub.remoteToken, request);
+        const remote = await this.post(this.env.remoteUrl, this.env.remoteToken, request);
         return { route: 'remote', actions: remote };
       } catch {
         return { route: 'none', actions: [] };
@@ -105,28 +142,49 @@ export class HubClient {
     return { route: 'exported', actions };
   }
 
+  /**
+   * Every connection and timer: from the local hub when it runs (so edits to
+   * hub.py show up at once), otherwise from hub.json. Null if neither answers.
+   */
+  async manifest(): Promise<ExportedHub | null> {
+    const local = await this.localConnection();
+    if (local !== null) {
+      try {
+        const response = await this.env.fetch(`${local.url}/manifest`, {
+          headers: authHeaders(local.token),
+          signal: AbortSignal.timeout(this.env.timeoutMs),
+        });
+        if (response.ok) {
+          const manifest = readManifest(await response.json());
+          if (manifest !== null) return manifest;
+        }
+      } catch {
+        // Fall back to hub.json.
+      }
+    }
+    return this.exportedHub();
+  }
+
+  private async post(baseUrl: string, token: string, request: HubEventRequest): Promise<readonly HubAction[]> {
+    const response = await this.env.fetch(`${baseUrl}/event`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
+      body: JSON.stringify(request),
+      signal: AbortSignal.timeout(this.env.timeoutMs),
+    });
+    if (!response.ok) throw new Error(`Hub answered ${response.status}`);
+    return readActions(await response.json());
+  }
+
   private localConnection(): Promise<HubConnection | null> {
-    this.connection ??= this.discoverConnection();
+    this.connection ??= this.env.discover().catch(() => null);
     return this.connection;
   }
 
-  private async discoverConnection(): Promise<HubConnection | null> {
-    if (devHubConnection !== null) return devHubConnection;
-    if (!isTauri()) return null;
-    try {
-      return await invoke<HubConnection | null>('hub_connection');
-    } catch {
-      return null;
-    }
-  }
-
   private exportedHub(): Promise<ExportedHub | null> {
-    this.exported ??= fetch(`${import.meta.env.BASE_URL}${config.hub.exportedManifestUrl}`)
-      .then(async (response) => {
-        if (!response.ok) return null;
-        const data: unknown = await response.json();
-        return isExportedHub(data) ? data : null;
-      })
+    this.exported ??= this.env
+      .fetch(this.env.exportedUrl)
+      .then(async (response) => (response.ok ? readManifest(await response.json()) : null))
       .catch(() => null);
     return this.exported;
   }
