@@ -1,0 +1,46 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "THE DAY",
+  "version": "0.1.0",
+  "identifier": "dev.theday.app",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:5173",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "THE DAY",
+        "width": 540,
+        "height": 800,
+        "minWidth": 320,
+        "minHeight": 480,
+        "fullscreen": true,
+        "resizable": true,
+        "backgroundColor": "#0b0f0d"
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost http://127.0.0.1:* data: blob:"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico",
+      "icons/icon.png"
+    ],
+    "resources": {
+      "../hub/server.py": "hub/server.py",
+      "../hub/hub.py": "hub/hub.py",
+      "../hub/hub_core/*.py": "hub/hub_core/"
+    }
+  }
+}

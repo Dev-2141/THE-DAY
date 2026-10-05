@@ -1,0 +1,226 @@
+:root {
+  color-scheme: dark;
+  --ink: #090807;
+  --stage-bg: #0b0f0d;
+  --dev-surface: rgba(12, 16, 15, 0.62);
+  --dev-border: rgba(255, 255, 255, 0.16);
+  --dev-text: #f1ece3;
+  --dev-muted: rgba(241, 236, 227, 0.66);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--stage-bg);
+  overscroll-behavior: none;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.app,
+.scene {
+  position: fixed;
+  inset: 0;
+}
+
+.scene canvas {
+  display: block;
+}
+
+/* Development overlays. Replaced by the glass interface in step 10. */
+
+.fps {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 10px);
+  left: calc(env(safe-area-inset-left) + 10px);
+  padding: 4px 8px;
+  border: 1px solid var(--dev-border);
+  border-radius: 6px;
+  background: var(--dev-surface);
+  color: var(--dev-text);
+  font: 600 12px/1.2 ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.hub-test {
+  position: fixed;
+  right: calc(env(safe-area-inset-right) + 12px);
+  bottom: calc(env(safe-area-inset-bottom) + 12px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hub-test button {
+  padding: 8px 14px;
+  border: 1px solid var(--dev-border);
+  border-radius: 999px;
+  background: var(--dev-surface);
+  color: var(--dev-text);
+  font: 600 13px/1 inherit;
+  font-family: inherit;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+}
+
+.hub-test button:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.hub-test button:focus-visible {
+  outline: 2px solid var(--dev-text);
+  outline-offset: 2px;
+}
+
+.hub-test__route {
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--dev-surface);
+  color: var(--dev-muted);
+  font-size: 12px;
+}
+
+.toasts {
+  position: fixed;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom) + 64px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: min(92vw, 420px);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.toast {
+  padding: 10px 16px;
+  border: 1px solid var(--dev-border);
+  border-radius: 12px;
+  background: var(--dev-surface);
+  color: var(--dev-text);
+  font-size: 14px;
+  line-height: 1.35;
+  text-align: center;
+  backdrop-filter: blur(10px);
+  animation: toast-in 240ms ease-out;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.dev-panel {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 44px);
+  left: calc(env(safe-area-inset-left) + 10px);
+  width: 232px;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  padding: 10px 12px 12px;
+  border: 1px solid var(--dev-border);
+  border-radius: 10px;
+  background: var(--dev-surface);
+  color: var(--dev-text);
+  font-size: 12px;
+  backdrop-filter: blur(10px);
+  user-select: auto;
+  touch-action: auto;
+}
+
+.dev-panel h2 {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dev-muted);
+}
+
+.dev-panel fieldset {
+  margin: 8px 0 0;
+  padding: 8px 0 0;
+  border: 0;
+  border-top: 1px solid var(--dev-border);
+}
+
+.dev-panel legend {
+  padding: 0;
+  margin-bottom: 4px;
+  color: var(--dev-muted);
+}
+
+.dev-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.dev-row input[type='range'] {
+  flex: 1;
+  min-width: 0;
+}
+
+.dev-row input:not([type]) {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 6px;
+  border: 1px solid var(--dev-border);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--dev-text);
+  font: inherit;
+}
+
+.dev-panel button {
+  padding: 4px 8px;
+  border: 1px solid var(--dev-border);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--dev-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.dev-panel button[aria-pressed='true'] {
+  background: rgba(255, 255, 255, 0.24);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.dev-panel button:focus-visible,
+.dev-panel input:focus-visible {
+  outline: 2px solid var(--dev-text);
+  outline-offset: 1px;
+}
+
+.dev-segment {
+  display: flex;
+  gap: 4px;
+}
+
+.dev-segment--stack {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.dev-segment--wrap {
+  flex-wrap: wrap;
+}

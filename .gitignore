@@ -1,0 +1,15 @@
+node_modules/
+dist/
+*.tsbuildinfo
+src-tauri/target/
+src-tauri/gen/
+
+# Secrets and signing material never enter the repository.
+hub/.env
+*.keystore
+*.jks
+*.pfx
+*.p12
+
+__pycache__/
+*.pyc

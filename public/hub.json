@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "bindings": {
+    "btn.enter": {
+      "tap": [
+        {
+          "type": "open_url",
+          "url": "https://example.com",
+          "target": "browser"
+        }
+      ]
+    },
+    "scene.ship": {
+      "tap": [
+        {
+          "type": "dialog",
+          "title": "Mothership",
+          "text": "Status: online",
+          "buttons": [
+            {
+              "label": "OK",
+              "actions": []
+            }
+          ]
+        }
+      ]
+    },
+    "btn.settings": {
+      "long_press": [
+        {
+          "type": "remote",
+          "function": "my_feature"
+        }
+      ]
+    },
+    "dev.hub_test": {
+      "tap": [
+        {
+          "type": "remote",
+          "function": "hub_test"
+        }
+      ]
+    }
+  },
+  "timers": []
+}

@@ -1,0 +1,38 @@
+{
+  "name": "the-day",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run hub:export && tsc -b && vite build",
+    "typecheck": "tsc -b",
+    "preview": "vite preview",
+    "hub:export": "python hub/export_json.py",
+    "assets:temp": "python scripts/cut_temp_layers.py",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "assets:enhance": "python scripts/enhance_reference.py"
+  },
+  "dependencies": {
+    "@fontsource-variable/bodoni-moda": "^5.3.0",
+    "@fontsource/cinzel": "^5.3.0",
+    "@fontsource/italiana": "^5.3.0",
+    "@fontsource/playfair-display": "^5.3.0",
+    "@tauri-apps/api": "^2.12.1",
+    "@tauri-apps/plugin-opener": "^2.7.0",
+    "pixi.js": "^8.22.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.1",
+    "@types/node": "^26.6.4",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "typescript": "~5.9.3",
+    "vite": "^8.3.2",
+    "vitest": "^5.0.3"
+  }
+}
