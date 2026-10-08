@@ -23,3 +23,6 @@ src-tauri/python/
 release/
 # Android signing settings, never committed.
 keystore.properties
+
+# Kotlin compiler logs from Android builds.
+src-tauri/gen/android/.kotlin/
