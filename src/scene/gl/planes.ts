@@ -66,8 +66,46 @@ export interface CanvasShading {
   readonly resources: Readonly<Record<string, QuadResource>>;
 }
 
+/** Rows scanned to find where an image has content; one row is 1/ROWS of its height. */
+const ROWS = 512;
+
+/**
+ * The first and last rows of an image that hold anything visible, as
+ * fractions of its height (0 and 1 when the image reaches its edges). Read
+ * once, from a small copy, so the plane draws only those rows: most layers
+ * are empty above or below their band, and skipping those rows saves a
+ * large share of the GPU's time on integrated graphics and phones.
+ */
+export function contentRows(texture: Texture): readonly [top: number, bottom: number] {
+  const resource: unknown = texture.source.resource;
+  if (!(resource instanceof ImageBitmap || resource instanceof HTMLImageElement || resource instanceof HTMLCanvasElement)) {
+    return [0, 1];
+  }
+  const canvas = document.createElement('canvas');
+  // Wide enough that a single small flower is not averaged away.
+  canvas.width = 384;
+  canvas.height = ROWS;
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  if (context === null) return [0, 1];
+  context.drawImage(resource, 0, 0, canvas.width, canvas.height);
+  const data = context.getImageData(0, 0, canvas.width, canvas.height).data;
+  const rowHasContent = (row: number): boolean => {
+    for (let x = 0; x < canvas.width; x++) if ((data[(row * canvas.width + x) * 4 + 3] ?? 0) > 0) return true;
+    return false;
+  };
+  let top = 0;
+  while (top < ROWS && !rowHasContent(top)) top++;
+  if (top === ROWS) return [0, 0];
+  let bottom = ROWS - 1;
+  while (bottom > top && !rowHasContent(bottom)) bottom--;
+  // One row of safety on each side, for filtering and the small copy's rounding.
+  return [Math.max(0, top - 1) / ROWS, Math.min(ROWS, bottom + 2) / ROWS];
+}
+
 export class CanvasPlane {
   readonly view: Mesh<MeshGeometry, Shader>;
+  /** Rows of the image with content, as fractions of its height. */
+  private readonly rows: readonly [number, number];
   private readonly uniforms: UniformGroup<{
     uRect: { value: Float32Array; type: 'vec4<f32>' };
     uHalfTexel: { value: Float32Array; type: 'vec2<f32>' };
@@ -75,6 +113,7 @@ export class CanvasPlane {
   }>;
 
   constructor(texture: Texture, shading?: CanvasShading) {
+    this.rows = contentRows(texture);
     texture.source.autoGenerateMipmaps = true;
     texture.source.scaleMode = 'linear';
     this.uniforms = new UniformGroup({
@@ -100,11 +139,18 @@ export class CanvasPlane {
 
   /**
    * Cover the window and `margin` pixels past each edge (room for the depth
-   * response), sampling the image as if it sat at `rect`.
+   * response), sampling the image as if it sat at `rect`, but only over the
+   * rows where the image has content. `reachUp` and `reachDown` widen that
+   * band for shading that moves the picture (the grass bending in the wind).
    */
-  place(rect: ScreenRect, screenWidth: number, screenHeight: number, margin = 0): void {
-    this.view.position.set(-margin, -margin);
-    this.view.scale.set(screenWidth + margin * 2, screenHeight + margin * 2);
+  place(rect: ScreenRect, screenWidth: number, screenHeight: number, margin = 0, reachUp = 0, reachDown = 0): void {
+    const [top, bottom] = this.rows;
+    // An image that reaches its top or bottom edge continues past it, to the window's edge.
+    const y0 = top <= 0 ? -margin : Math.max(-margin, rect.y + top * rect.height - reachUp - margin);
+    const y1 = bottom >= 1 ? screenHeight + margin : Math.min(screenHeight + margin, rect.y + bottom * rect.height + reachDown + margin);
+    this.view.visible = y1 > y0;
+    this.view.position.set(-margin, y0);
+    this.view.scale.set(screenWidth + margin * 2, Math.max(y1 - y0, 1));
     this.uniforms.uniforms.uRect.set([rect.x, rect.y, rect.width, rect.height]);
     this.uniforms.update();
   }

@@ -43,8 +43,14 @@ layer over it, then export each layer on its own with the guide hidden.
 | `grass-near.png` | The front row: tallest, darkest grass and reeds along the bottom edge, denser toward the right. Blades only, on transparent. | 3840 x 4000 (canvas) | Yes |
 | `flowers.png` | Only the tiny warm orange flowers, on transparent, so they can bob with the grass. | 3840 x 4000 (canvas) | Yes |
 
-Needed later, in step 12: `app-icon.png`, **1024 x 1024**, no transparency
-(Android adaptive icons also want a version with 20% safe padding).
+The app icon: `art/app-icon.png`, **1024 x 1024**, no transparency. A
+temporary one cropped from the reference is in place (`python
+scripts/make_icon.py`). Replace it with your own and run `npx tauri icon
+art/app-icon.png` to remake every platform's icons. On Android the launcher
+shows only the middle two thirds, so keep everything important there.
+
+After replacing any layer, run `npm run assets:textures` (or build): it remakes
+the smaller copies the medium and low quality levels load.
 
 ### Not needed as images
 

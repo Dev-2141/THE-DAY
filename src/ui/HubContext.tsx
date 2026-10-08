@@ -34,9 +34,14 @@ export interface GestureHandlers {
 
 /**
  * Tap, long press and hover for one element, all sent to the hub. A click
- * (pointer, Enter or Space) is a tap, unless it ended a long press.
+ * (pointer, Enter or Space) is a tap, unless it ended a long press. With no
+ * element ID (a pop-up's own button) only `onTap` runs.
  */
-export function useHubGestures(id: ElementId, payload?: Readonly<Record<string, unknown>>): GestureHandlers {
+export function useHubGestures(
+  id: ElementId | null,
+  options: { readonly payload?: Readonly<Record<string, unknown>>; readonly onTap?: () => void } = {},
+): GestureHandlers {
+  const { payload, onTap } = options;
   const hub = useHub();
   const pressTimer = useRef(0);
   const hoverTimer = useRef(0);
@@ -58,11 +63,12 @@ export function useHubGestures(id: ElementId, payload?: Readonly<Record<string, 
         longPressed.current = false;
         return;
       }
-      void hub.trigger(id, 'tap', payload);
+      onTap?.();
+      if (id !== null) void hub.trigger(id, 'tap', payload);
     },
     onPointerDown: (event) => {
-      if (event.button > 0) return;
       longPressed.current = false;
+      if (event.button > 0 || id === null) return;
       window.clearTimeout(pressTimer.current);
       pressTimer.current = window.setTimeout(() => {
         longPressed.current = true;
@@ -72,7 +78,7 @@ export function useHubGestures(id: ElementId, payload?: Readonly<Record<string, 
     onPointerUp: endPress,
     onPointerCancel: endPress,
     onPointerEnter: (event) => {
-      if (event.pointerType !== 'mouse') return;
+      if (event.pointerType !== 'mouse' || id === null) return;
       window.clearTimeout(hoverTimer.current);
       hoverTimer.current = window.setTimeout(() => void hub.trigger(id, 'hover', payload), config.ui.hoverMs);
     },

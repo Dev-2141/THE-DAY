@@ -23,13 +23,20 @@ from hub_core import hub  # noqa: E402
 OUTPUT = HERE.parent / "public" / "hub.json"
 
 
-def main() -> None:
-    logging.basicConfig(level=logging.INFO, format="[hub] %(message)s")
+def write_manifest(output: Path = OUTPUT) -> list[str]:
+    """Write hub.json from the connections in hub.py; return the ones that need a server."""
     import hub as _connections  # noqa: E402,F401  registers every connection
 
     data = hub.export()
-    needs_server = data.pop("needs_server")
-    OUTPUT.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    needs_server: list[str] = data.pop("needs_server")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    return needs_server
+
+
+def main() -> None:
+    logging.basicConfig(level=logging.INFO, format="[hub] %(message)s")
+    needs_server = write_manifest()
     print(f"Wrote {OUTPUT.relative_to(HERE.parent)}")
     if needs_server:
         print("These connections need the hub on a server to work on Android:")

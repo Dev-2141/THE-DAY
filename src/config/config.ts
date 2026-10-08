@@ -1044,7 +1044,7 @@ export const config: AppConfig = {
     initial: 'auto',
     budgetMs: 11,
     fallback: 'high',
-    benchmarkFrames: 12,
+    benchmarkFrames: 24,
     levels: {
       low: { pixelRatio: 0.75, textures: 'low', particles: 0.35, passes: ['tone', 'grade', 'vignette', 'dither'] },
       medium: {

@@ -2,7 +2,7 @@ node_modules/
 dist/
 *.tsbuildinfo
 src-tauri/target/
-src-tauri/gen/
+src-tauri/gen/schemas/
 
 # Secrets and signing material never enter the repository.
 hub/.env
@@ -13,3 +13,13 @@ hub/.env
 
 __pycache__/
 *.pyc
+
+# Development benchmark output.
+benchmark/
+
+# The Python bundled into the Windows app (npm run python:fetch).
+src-tauri/python/
+# Portable Windows build output.
+release/
+# Android signing settings, never committed.
+keystore.properties

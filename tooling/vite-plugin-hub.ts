@@ -7,11 +7,16 @@
  *   3. exposes { url, token } to the interface through `virtual:hub-connection`,
  *   4. restarts the hub whenever a file in `hub/` changes, and stops it with vite.
  *
+ * It also receives the development benchmark (`?benchmark`, or the dev
+ * panel's "Measure every level") and writes it to benchmark/results.json.
+ * Under vitest no hub is started.
+ *
  * In a production build the virtual module exports `null`; the Tauri shell
  * then supplies the connection instead (see src-tauri/src/lib.rs).
  */
 import { spawn, type ChildProcess } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import path from 'node:path';
 import type { Plugin } from 'vite';
@@ -73,12 +78,27 @@ export function hubPlugin(): Plugin {
 
     async configResolved(config) {
       hubDir = path.resolve(config.root, 'hub');
-      if (config.command === 'serve') {
+      if (config.command === 'serve' && process.env['VITEST'] === undefined) {
         port = await findFreePort();
       }
     },
 
     configureServer(server) {
+      server.middlewares.use('/__the-day/benchmark', (request, response) => {
+        let body = '';
+        request.on('data', (chunk: Buffer) => (body += chunk.toString()));
+        request.on('end', () => {
+          const dir = path.resolve(server.config.root, 'benchmark');
+          mkdirSync(dir, { recursive: true });
+          const name = new URL(request.url ?? '', 'http://x').searchParams.get('name') ?? 'results';
+          const file = path.join(dir, `${/^[a-z]+$/.test(name) ? name : 'results'}.json`);
+          writeFileSync(file, body);
+          console.log(`[benchmark] wrote ${file}`);
+          response.statusCode = 204;
+          response.end();
+        });
+      });
+      if (port === 0) return;
       start();
       server.watcher.add(hubDir);
       server.watcher.on('change', (file) => {

@@ -1,6 +1,6 @@
 [package]
 name = "the-day"
-version = "0.1.0"
+version = "1.0.0"
 description = "THE DAY: a living poster home screen"
 edition = "2021"
 rust-version = "1.80"
@@ -25,3 +25,11 @@ lto = true
 opt-level = "s"
 panic = "abort"
 strip = true
+
+[profile.dev]
+# Lean debug builds, so the Android debug APK stays a sensible size: line
+# numbers for this crate (enough for readable backtraces), none for dependencies.
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false

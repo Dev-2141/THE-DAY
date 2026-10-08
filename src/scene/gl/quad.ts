@@ -61,7 +61,11 @@ export function createQuad(
     gl: { vertex: QUAD_VERTEX, fragment: GLSL_COMMON + fragment, name, preferredFragmentPrecision: 'highp' },
     resources: { ...resources },
   });
-  return new Mesh({ geometry, shader });
+  const mesh = new Mesh({ geometry, shader });
+  // A mesh does not free its shader; without this the shader would keep
+  // listening to textures that are unloaded after the scene is torn down.
+  mesh.once('destroyed', () => shader.destroy());
+  return mesh;
 }
 
 /** Parse '#rrggbb' into 0..1 RGB components for a uniform. */

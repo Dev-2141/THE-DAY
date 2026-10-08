@@ -151,8 +151,15 @@ export class CloudsLayer implements SceneLayer {
     const { clouds, sunGlow, beams } = config.layers;
     const u = this.uniforms.uniforms;
     const margin = overscan(viewport);
+    // Below the tile there is no cloud (the shader fades it out there), and
+    // the veil stops at its lowest line; the quad ends there too, past the
+    // warp's reach, which keeps the GPU from shading empty rows.
+    const [tileShift, tileHeight] = [this.uniforms.uniforms.uTile[1] ?? 0, this.uniforms.uniforms.uTile[3] ?? 0];
+    let bottom = canvas.y + (tileShift + tileHeight + this.settings.warp.amplitude) * unit + 2;
+    if (this.veil !== null) bottom = Math.min(bottom, viewport.y + this.veil.bottom * viewport.height + 2);
+    const y1 = Math.min(viewport.screenHeight + margin, bottom + margin);
     this.quad.position.set(-margin, -margin);
-    this.quad.scale.set(viewport.screenWidth + margin * 2, viewport.screenHeight + margin * 2);
+    this.quad.scale.set(viewport.screenWidth + margin * 2, Math.max(y1 + margin, 1));
     u.uCanvas.set([canvas.x, canvas.y, unit]);
     u.uPoster.set([viewport.x, viewport.y, viewport.width, viewport.height]);
     u.uEdgeFade = clouds.edgeFade * unit;

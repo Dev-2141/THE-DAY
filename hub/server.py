@@ -6,6 +6,10 @@ The per-launch token is read from the THE_DAY_HUB_TOKEN environment variable
 (never from the command line, so it does not appear in process listings).
 Every request must carry "Authorization: Bearer <token>".
 
+    POST /event      {"id", "event", "payload"} -> {"actions": [...]}
+    GET  /manifest   every connection and timer (the same shape as hub.json)
+    GET  /health     {"ok": true}
+
 By default the server listens on 127.0.0.1 only. To serve custom functions to
 the Android app, run it on a server with --host 0.0.0.0 behind HTTPS and set
 config.hub.remoteUrl and config.hub.remoteToken in the app.
@@ -83,22 +87,31 @@ def make_handler(token: str, origins: frozenset[str]) -> type[BaseHTTPRequestHan
                 self._reply(HTTPStatus.UNAUTHORIZED, {"error": "unauthorised"})
             elif self.path == "/health":
                 self._reply(HTTPStatus.OK, {"ok": True})
+            elif self.path == "/manifest":
+                # Every connection and timer, so the interface knows what is connected.
+                manifest = hub.export()
+                manifest.pop("needs_server", None)
+                self._reply(HTTPStatus.OK, manifest)
             else:
                 self._reply(HTTPStatus.NOT_FOUND, {"error": "not found"})
 
         def do_POST(self) -> None:  # noqa: N802
+            length = int(self.headers.get("Content-Length") or 0)
+            # Read the body before answering, even to refuse it: a reply sent
+            # while the client is still uploading aborts its connection.
+            body = self.rfile.read(length) if 0 < length <= MAX_BODY_BYTES else b""
             if not self._authorised():
                 self._reply(HTTPStatus.UNAUTHORIZED, {"error": "unauthorised"})
                 return
             if self.path != "/event":
                 self._reply(HTTPStatus.NOT_FOUND, {"error": "not found"})
                 return
-            length = int(self.headers.get("Content-Length") or 0)
             if length <= 0 or length > MAX_BODY_BYTES:
+                self.close_connection = True
                 self._reply(HTTPStatus.BAD_REQUEST, {"error": "bad length"})
                 return
             try:
-                request = json.loads(self.rfile.read(length))
+                request = json.loads(body)
                 element_id = str(request["id"])
                 event = str(request["event"])
                 payload = request.get("payload") or {}

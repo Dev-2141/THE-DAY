@@ -94,9 +94,8 @@ export class SettingsStore {
     this.current = initial;
   }
 
-  get(): Settings {
-    return this.current;
-  }
+  // Arrow properties, so React's useSyncExternalStore can take them unbound.
+  readonly get = (): Settings => this.current;
 
   set(change: Partial<Settings>): void {
     const next = sanitizeSettings({ ...this.current, ...change }, this.current);
@@ -106,10 +105,10 @@ export class SettingsStore {
     for (const listener of this.listeners) listener();
   }
 
-  subscribe(listener: Listener): () => void {
+  readonly subscribe = (listener: Listener): (() => void) => {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
-  }
+  };
 }
 
 export const settingsStore = new SettingsStore();

@@ -72,7 +72,8 @@ export class Stage {
   private postProcessor: PostProcessor | null = null;
   private quality: QualityLevelConfig;
   private viewportValue: PosterViewport | null = null;
-  private pixelRatioQuery: MediaQueryList | null = null;
+  /** Real seconds since the display's pixel ratio was last checked. */
+  private sinceRatioCheck = 0;
   private contextLost = false;
   private measuring = false;
 
@@ -128,6 +129,7 @@ export class Stage {
     // Runs before the application draws its stage each tick.
     this.app.ticker.add((ticker) => {
       this.clock.advance(ticker.deltaMS);
+      this.checkPixelRatio(ticker.deltaMS / 1000);
       this.parallax.update(this.clock.realDelta);
       this.advance();
       const frame = this.clock.frame;
@@ -135,7 +137,6 @@ export class Stage {
     });
     this.parallax.attach();
     document.addEventListener('visibilitychange', this.onVisibility);
-    this.watchPixelRatio();
     this.state = 'mounted';
     this.onVisibility();
   }
@@ -157,6 +158,12 @@ export class Stage {
   layerOffset(layerId: string): readonly [number, number] {
     const group = this.groups.get(layerId);
     return group === undefined ? [0, 0] : [group.position.x, group.position.y];
+  }
+
+  /** Show or hide a whole scene layer (the hub's set_visible on a scene object). */
+  setLayerVisible(layerId: string, visible: boolean | 'toggle'): void {
+    const group = this.groups.get(layerId);
+    if (group !== undefined) group.visible = visible === 'toggle' ? !group.visible : visible;
   }
 
   /** Called after every drawn frame, e.g. to let the interface follow the light. */
@@ -199,9 +206,11 @@ export class Stage {
   }
 
   /**
-   * Measure the real cost of a frame at each level: the scene is updated,
-   * drawn and then waited for until the GPU has finished, so the time is
-   * not hidden by the display's refresh rate. Restores the current level.
+   * Measure the real cost of a frame at each level. Frames are drawn in
+   * short batches, as they are while running (the CPU preparing one frame
+   * while the GPU draws the last), and each batch is waited for until the
+   * GPU has finished, so the time is not hidden by the display's refresh
+   * rate. `frames` is the total per level. Restores the current level.
    */
   async measure(levels: readonly QualityLevel[], frames = config.quality.benchmarkFrames): Promise<FrameTiming[]> {
     if (this.state !== 'mounted' || this.measuring) return [];
@@ -209,24 +218,35 @@ export class Stage {
     const gl = (this.app.renderer as WebGLRenderer).gl;
     const pixel = new Uint8Array(4);
     const previous = this.quality;
+    const batch = 4;
+    const draw = (): void => {
+      this.clock.advance(1000 / 60);
+      this.advance();
+      this.app.render();
+    };
+    // Waiting for one pixel makes the GPU finish everything queued before it.
+    const finish = (): void => gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
     this.app.ticker.stop();
     const results: FrameTiming[] = [];
     try {
       for (const level of levels) {
         this.setQuality(config.quality.levels[level]);
-        const times: number[] = [];
-        // Two warm-up frames: shaders compile and targets resize on the first ones.
-        for (let i = 0; i < frames + 2; i++) {
+        // Warm-up: shaders compile and targets resize on the first frames.
+        for (let i = 0; i < 2; i++) {
+          await nextFrame();
+          draw();
+          finish();
+        }
+        const perFrame: number[] = [];
+        for (let done = 0; done < frames; done += batch) {
           await nextFrame();
           if (this.state !== 'mounted' || this.contextLost) return results;
           const start = performance.now();
-          this.clock.advance(1000 / 60);
-          this.advance();
-          this.app.render();
-          gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
-          if (i >= 2) times.push(performance.now() - start);
+          for (let i = 0; i < batch; i++) draw();
+          finish();
+          perFrame.push((performance.now() - start) / batch);
         }
-        results.push({ level, medianMs: percentile(times, 0.5), p90Ms: percentile(times, 0.9) });
+        results.push({ level, medianMs: percentile(perFrame, 0.5), p90Ms: percentile(perFrame, 0.9) });
       }
     } finally {
       this.measuring = false;
@@ -301,23 +321,21 @@ export class Stage {
     this.onContextLostCallback?.();
   };
 
-  /** Follow display-scaling changes (a window moved to another screen, or the scale setting changed). */
-  private watchPixelRatio(): void {
-    this.pixelRatioQuery?.removeEventListener('change', this.onPixelRatioChange);
-    this.pixelRatioQuery = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
-    this.pixelRatioQuery.addEventListener('change', this.onPixelRatioChange);
+  /**
+   * Follow display-scaling changes (the window moved to another screen, or
+   * the system's scale setting changed). Checked about once a second: a
+   * media-query listener alone misses some of these changes.
+   */
+  private checkPixelRatio(dt: number): void {
+    this.sinceRatioCheck += dt;
+    if (this.sinceRatioCheck < 1) return;
+    this.sinceRatioCheck = 0;
+    if (Math.abs(this.resolution() - this.app.renderer.resolution) > 1e-3) this.applyResolution();
   }
-
-  private readonly onPixelRatioChange = (): void => {
-    if (this.state !== 'mounted') return;
-    this.applyResolution();
-    this.watchPixelRatio();
-  };
 
   private teardown(): void {
     this.parallax.detach();
     document.removeEventListener('visibilitychange', this.onVisibility);
-    this.pixelRatioQuery?.removeEventListener('change', this.onPixelRatioChange);
     this.app.canvas.removeEventListener('webglcontextlost', this.onContextLost);
     this.app.renderer.off('resize', this.onResize);
     this.frameListeners.clear();

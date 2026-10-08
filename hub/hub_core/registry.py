@@ -216,7 +216,8 @@ def fill_template(template: str, result: Any) -> str:
                 value = value[int(part)]
             else:
                 return ""
-        return value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
+        # Compact JSON, exactly as the interface's own template filler writes it.
+        return value if isinstance(value, str) else json.dumps(value, ensure_ascii=False, separators=(",", ":"))
 
     return _FIELD.sub(lookup, template)
 

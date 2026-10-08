@@ -82,8 +82,14 @@ def set_text(target: str, text: str) -> Action:
     return Action({"type": "set_text", "target": target, "text": text})
 
 
-def set_visible(target: str, visible: bool) -> Action:
-    """Show or hide an element, by element ID."""
+def set_visible(target: str, visible: bool | Literal["toggle"]) -> Action:
+    """Show or hide an element, by element ID; "toggle" flips it.
+
+    "ui" is the whole interface (False gives the clean view) and
+    "panel.settings" the settings panel.
+    """
+    if visible not in (True, False, "toggle"):
+        raise ValueError(f'set_visible needs True, False or "toggle", not {visible!r}')
     return Action({"type": "set_visible", "target": target, "visible": visible})
 
 

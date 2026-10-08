@@ -76,6 +76,24 @@ export function windAt(time: number): WindFrame {
 }
 
 /**
+ * The gust at poster x, as the grass shader computes it (gustAt in
+ * WIND_GLSL), for things that follow the wind on the CPU, such as the sound.
+ */
+export function gustAtX(frame: WindFrame, x: number): number {
+  const direction = config.wind.direction;
+  const swingBack = config.wind.swingBack;
+  let sum = 0;
+  for (let i = 0; i < MAX_GUSTS; i++) {
+    const w = Math.max(frame.widths[i] ?? 0, 1e-4);
+    const d = (x - (frame.centers[i] ?? 0)) * direction;
+    const body = d > 0 ? Math.exp(-((d / (0.35 * w)) ** 2)) : Math.exp(d / w);
+    const back = Math.exp(-(((d + 1.9 * w) / (0.55 * w)) ** 2));
+    sum += (frame.strengths[i] ?? 0) * (body - swingBack * back);
+  }
+  return sum;
+}
+
+/**
  * GLSL for the wind: the travelling gusts with a sharp front, a long tail
  * and a small swing back after they pass. Uniforms are filled from windAt.
  */

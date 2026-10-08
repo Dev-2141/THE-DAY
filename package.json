@@ -1,18 +1,27 @@
 {
   "name": "the-day",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run hub:export && tsc -b && vite build",
+    "build": "npm run hub:export && npm run assets:textures && tsc -b && vite build",
     "typecheck": "tsc -b",
     "preview": "vite preview",
+    "test": "npm run test:web && npm run test:hub",
+    "test:web": "vitest run",
+    "test:hub": "python -m unittest discover -s hub/tests",
     "hub:export": "python hub/export_json.py",
     "assets:temp": "python scripts/cut_temp_layers.py",
+    "assets:enhance": "python scripts/enhance_reference.py",
+    "assets:textures": "python scripts/make_textures.py",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "assets:enhance": "python scripts/enhance_reference.py"
+    "python:fetch": "python scripts/fetch_python.py",
+    "icons": "python scripts/make_icon.py && tauri icon art/app-icon.png",
+    "windows:build": "tauri build && python scripts/package_portable.py",
+    "android:apk": "tauri android build --debug --apk",
+    "android:aab": "tauri android build --aab"
   },
   "dependencies": {
     "@fontsource-variable/bodoni-moda": "^5.3.0",

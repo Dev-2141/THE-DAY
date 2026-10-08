@@ -2,6 +2,19 @@
   color-scheme: dark;
   --ink: #090807;
   --stage-bg: #0b0f0d;
+  --cream: #efe5d4;
+  --glass-text: #fdf9f1;
+  --glass-muted: rgba(253, 249, 241, 0.74);
+  --glass-tint: rgba(18, 22, 21, 0.2);
+  --glass-edge: rgba(255, 255, 255, 0.55);
+  --focus: #fdf9f1;
+  /* Where the light comes from, -1..1, updated every frame from the pointer or the tilt. */
+  --lx: 0;
+  --ly: 0;
+  /* A spring: quick, with one soft overshoot. */
+  --spring: cubic-bezier(0.2, 1.25, 0.32, 1);
+  --display: 'Bodoni Moda Variable', 'Bodoni Moda', Didot, serif;
+  --caps: 'Cinzel', 'Trajan Pro', serif;
   --dev-surface: rgba(12, 16, 15, 0.62);
   --dev-border: rgba(255, 255, 255, 0.16);
   --dev-text: #f1ece3;
@@ -39,10 +52,11 @@ body,
   display: block;
 }
 
-/* Development overlays. Replaced by the glass interface in step 10. */
+/* Development overlays: shown only under `npm run dev`. The glass interface is in ui/interface.css. */
 
 .fps {
   position: fixed;
+  z-index: 20;
   top: calc(env(safe-area-inset-top) + 10px);
   left: calc(env(safe-area-inset-left) + 10px);
   padding: 4px 8px;
@@ -57,6 +71,7 @@ body,
 
 .hub-test {
   position: fixed;
+  z-index: 20;
   right: calc(env(safe-area-inset-right) + 12px);
   bottom: calc(env(safe-area-inset-bottom) + 12px);
   display: flex;
@@ -94,41 +109,9 @@ body,
   font-size: 12px;
 }
 
-.toasts {
-  position: fixed;
-  left: 50%;
-  bottom: calc(env(safe-area-inset-bottom) + 64px);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  width: min(92vw, 420px);
-  transform: translateX(-50%);
-  pointer-events: none;
-}
-
-.toast {
-  padding: 10px 16px;
-  border: 1px solid var(--dev-border);
-  border-radius: 12px;
-  background: var(--dev-surface);
-  color: var(--dev-text);
-  font-size: 14px;
-  line-height: 1.35;
-  text-align: center;
-  backdrop-filter: blur(10px);
-  animation: toast-in 240ms ease-out;
-}
-
-@keyframes toast-in {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-}
-
 .dev-panel {
   position: fixed;
+  z-index: 20;
   top: calc(env(safe-area-inset-top) + 44px);
   left: calc(env(safe-area-inset-left) + 10px);
   width: 232px;
@@ -223,4 +206,23 @@ body,
 
 .dev-segment--wrap {
   flex-wrap: wrap;
+}
+
+.dev-note {
+  margin: 4px 0;
+  color: var(--dev-muted);
+}
+
+.dev-table {
+  width: 100%;
+  margin-top: 6px;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.dev-table th,
+.dev-table td {
+  padding: 2px 4px;
+  font-weight: 400;
+  text-align: left;
 }

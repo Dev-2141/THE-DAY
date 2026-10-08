@@ -1,5 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
+import { loadedTextureUrl, type TextureSet } from '../assets/loader';
 import { config, type DisplayFont, type StageLayout } from '../config/config';
+import { effectiveQuality, settingsStore } from '../core/settings';
+import { runBenchmark, type BenchmarkReport } from '../dev/benchmark';
 import type { Scene } from '../scene/composition';
 import { POST_PASSES, type PostPassName } from '../scene/post/PostProcessor';
 import type { Stage } from '../scene/Stage';
@@ -37,6 +40,7 @@ const FONTS: readonly { readonly id: DisplayFont; readonly label: string }[] = [
 interface DevPanelProps {
   readonly stage: Stage;
   readonly scene: Scene;
+  readonly textureSet: TextureSet;
 }
 
 /**
@@ -46,14 +50,16 @@ interface DevPanelProps {
  * post-processing pass, to compare with and without.
  * R toggles the overlay, P the whole post-processing, D this panel.
  */
-export function DevPanel({ stage, scene }: DevPanelProps) {
+export function DevPanel({ stage, scene, textureSet }: DevPanelProps) {
+  const settings = useSyncExternalStore(settingsStore.subscribe, settingsStore.get);
+  const [report, setReport] = useState<BenchmarkReport | null>(null);
+  const [measuring, setMeasuring] = useState(false);
   const [open, setOpen] = useState(config.debug.showDevPanel);
   const [overlay, setOverlay] = useState(scene.reference.visible);
   const [opacity, setOpacity] = useState(scene.reference.opacity);
   const [layout, setLayout] = useState<StageLayout>(stage.currentLayout);
   const [font, setFont] = useState<DisplayFont>(scene.text.font);
-  const [format, setFormat] = useState(scene.text.clockFormat);
-  const [zoneInput, setZoneInput] = useState(format.timeZone);
+  const [zoneInput, setZoneInput] = useState(settings.timeZone);
   const [speed, setSpeed] = useState(stage.clock.timeScale);
   const [postOn, setPostOn] = useState(stage.post?.masterEnabled ?? true);
   const [passes, setPasses] = useState<Readonly<Record<PostPassName, boolean>>>(() =>
@@ -71,7 +77,6 @@ export function DevPanel({ stage, scene }: DevPanelProps) {
   }, [scene, opacity]);
   useEffect(() => stage.setLayout(layout), [stage, layout]);
   useEffect(() => scene.text.setDisplayFont(font), [scene, font]);
-  useEffect(() => scene.text.setClockFormat(format), [scene, format]);
   useEffect(() => {
     stage.clock.timeScale = speed;
   }, [stage, speed]);
@@ -95,7 +100,7 @@ export function DevPanel({ stage, scene }: DevPanelProps) {
 
   return (
     <aside className="dev-panel" aria-label="Development panel">
-      <h2>Dev · steps 2–9</h2>
+      <h2>Dev</h2>
 
       <fieldset>
         <legend>Motion (scene clock)</legend>
@@ -172,16 +177,16 @@ export function DevPanel({ stage, scene }: DevPanelProps) {
       </fieldset>
 
       <fieldset>
-        <legend>Clock</legend>
+        <legend>Clock (shared with the settings panel)</legend>
         <div className="dev-segment dev-segment--wrap">
           {ZONES.map((z) => (
             <button
               key={z.label}
               type="button"
-              aria-pressed={format.timeZone === z.zone}
+              aria-pressed={settings.timeZone === z.zone}
               onClick={() => {
                 setZoneInput(z.zone);
-                setFormat({ ...format, timeZone: z.zone });
+                settingsStore.set({ timeZone: z.zone });
               }}
             >
               {z.label}
@@ -192,7 +197,7 @@ export function DevPanel({ stage, scene }: DevPanelProps) {
           className="dev-row"
           onSubmit={(e) => {
             e.preventDefault();
-            setFormat({ ...format, timeZone: zoneInput.trim() });
+            settingsStore.set({ timeZone: zoneInput.trim() });
           }}
         >
           <input
@@ -206,19 +211,62 @@ export function DevPanel({ stage, scene }: DevPanelProps) {
         <label className="dev-row">
           <input
             type="checkbox"
-            checked={format.hour12}
-            onChange={(e) => setFormat({ ...format, hour12: e.target.checked })}
+            checked={settings.hour12}
+            onChange={(e) => settingsStore.set({ hour12: e.target.checked })}
           />
           12-hour
         </label>
         <label className="dev-row">
           <input
             type="checkbox"
-            checked={format.showSeconds}
-            onChange={(e) => setFormat({ ...format, showSeconds: e.target.checked })}
+            checked={settings.showSeconds}
+            onChange={(e) => settingsStore.set({ showSeconds: e.target.checked })}
           />
           Seconds
         </label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Quality and robustness</legend>
+        <p className="dev-note">
+          Level {effectiveQuality(settings)} ({settings.quality}) · textures {textureSet}
+          <br />
+          sky from {loadedTextureUrl('skyBase')?.split('/assets/')[1] ?? 'not loaded'}
+        </p>
+        <div className="dev-segment dev-segment--wrap">
+          <button
+            type="button"
+            disabled={measuring}
+            onClick={() => {
+              setMeasuring(true);
+              void runBenchmark(stage, undefined, 3).then((result) => {
+                setReport(result);
+                setMeasuring(false);
+              });
+            }}
+          >
+            {measuring ? 'Measuring…' : 'Measure every level'}
+          </button>
+          <button type="button" onClick={() => settingsStore.set({ measuredQuality: null })}>
+            Forget auto choice
+          </button>
+          <button type="button" onClick={() => stage.loseContext()}>
+            Lose GPU context
+          </button>
+        </div>
+        {report !== null && (
+          <table className="dev-table">
+            <tbody>
+              {report.rows.map((row) => (
+                <tr key={row.level}>
+                  <th scope="row">{row.level}</th>
+                  <td>{row.medianMs.toFixed(1)} ms</td>
+                  <td>{Math.round(row.displayFps)} fps</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </fieldset>
     </aside>
   );

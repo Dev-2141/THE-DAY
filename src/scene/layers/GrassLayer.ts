@@ -130,8 +130,11 @@ export class GrassLayer implements SceneLayer {
     const rect = canvasRect(viewport);
     const margin = overscan(viewport);
     const grass = config.layers.grass;
+    // Bent blades move sideways and dip; only the flowers' nod lifts anything, and only a little.
+    const reachUp = (grass.flowers.bob * 2 + grass.near.focus * 2) * viewport.width + 2;
+    const reachDown = grass.maxBend * viewport.width;
     this.canvasPlanes.forEach((plane, i) => {
-      plane.place(rect, viewport.screenWidth, viewport.screenHeight, margin);
+      plane.place(rect, viewport.screenWidth, viewport.screenHeight, margin, reachUp, reachDown);
       const settings = this.planes[i];
       const group = this.grassUniforms[i];
       if (settings === undefined || group === undefined) return;

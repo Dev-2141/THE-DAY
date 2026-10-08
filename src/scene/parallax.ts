@@ -33,6 +33,11 @@ export class ParallaxController {
     return { x: this.current.x * this.amountValue, y: this.current.y * this.amountValue };
   }
 
+  /** The smoothed input before the motion setting scales it, e.g. for the light on the glass. */
+  get pointer(): ParallaxPoint {
+    return { x: this.current.x, y: this.current.y };
+  }
+
   /** 0 (off) .. 1 (full): the motion setting. */
   set amount(value: number) {
     this.amountValue = Math.max(0, Math.min(1, value));

@@ -22,6 +22,11 @@ export function currentTextureSet(): TextureSet {
   return textureSet;
 }
 
+/** The file a loaded texture actually came from (the reduced copy, or the original). */
+export function loadedTextureUrl(key: AssetKey): string | null {
+  return loadedFrom.get(key) ?? null;
+}
+
 /** Resolve a manifest entry to a URL that works under vite dev, a build and Tauri. */
 export function assetUrl(key: AssetKey): string {
   return `${import.meta.env.BASE_URL}${assetManifest[key].src}`;
