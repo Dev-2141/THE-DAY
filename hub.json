@@ -1,0 +1,111 @@
+{
+  "version": 1,
+  "bindings": {
+    "btn.settings": {
+      "tap": [
+        {
+          "type": "set_visible",
+          "target": "panel.settings",
+          "visible": "toggle"
+        }
+      ],
+      "long_press": [
+        {
+          "type": "remote",
+          "function": "my_feature"
+        }
+      ]
+    },
+    "btn.hide_ui": {
+      "tap": [
+        {
+          "type": "set_visible",
+          "target": "ui",
+          "visible": false
+        }
+      ]
+    },
+    "btn.enter": {
+      "tap": [
+        {
+          "type": "navigate",
+          "screen": "enter"
+        }
+      ]
+    },
+    "btn.back": {
+      "tap": [
+        {
+          "type": "navigate",
+          "screen": "home"
+        }
+      ]
+    },
+    "btn.website": {
+      "tap": [
+        {
+          "type": "open_url",
+          "url": "https://example.com",
+          "target": "browser"
+        }
+      ]
+    },
+    "scene.ship": {
+      "tap": [
+        {
+          "type": "dialog",
+          "title": "Mothership",
+          "text": "Status: online",
+          "buttons": [
+            {
+              "label": "Open log",
+              "actions": [
+                {
+                  "type": "open_url",
+                  "url": "https://example.com",
+                  "target": "panel"
+                }
+              ]
+            },
+            {
+              "label": "Close",
+              "actions": []
+            }
+          ]
+        }
+      ]
+    },
+    "scene.dome_left": {
+      "long_press": [
+        {
+          "type": "sheet",
+          "title": "The Archive",
+          "text": "Sealed since the first day. Its lights have never gone out.",
+          "buttons": [
+            {
+              "label": "OK",
+              "actions": []
+            }
+          ]
+        }
+      ]
+    },
+    "scene.wreck": {
+      "tap": [
+        {
+          "type": "toast",
+          "text": "Signal lost. The wreck is silent."
+        }
+      ]
+    },
+    "dev.hub_test": {
+      "tap": [
+        {
+          "type": "remote",
+          "function": "hub_test"
+        }
+      ]
+    }
+  },
+  "timers": []
+}
